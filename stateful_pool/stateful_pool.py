@@ -1,8 +1,3 @@
-"""
-Author: Meng-Xun Li (menxli.github.io)
-At: 2026-02-13
-"""
-
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar, Optional
 import multiprocessing as mp
@@ -10,17 +5,17 @@ from threading import Event, Thread, Lock
 from dataclasses import dataclass
 
 T = TypeVar('T')
-ST = TypeVar('ST')
-RT = TypeVar('RT')
+SR = TypeVar('SR')
+ER = TypeVar('ER')
 
-class SWorker(ABC, Generic[ST, T, RT]):
+class SWorker(ABC, Generic[SR, ER]):
     """
     The entire class will be run in a separate process, 
     so it should not have any shared state with the main process.
     """
 
     @abstractmethod
-    def spawn(self, *args, **kwargs) -> ST:
+    def spawn(self, *args, **kwargs) -> SR:
         """ 
         Setup the worker on process start. 
         This method is called once when the worker process is initialized.
@@ -31,7 +26,7 @@ class SWorker(ABC, Generic[ST, T, RT]):
         ...
     
     @abstractmethod
-    def execute(self, task: T) -> RT:
+    def execute(self, *args, **kwargs) -> ER:
         """ 
         Run a task on the worker. 
         This method is called for each task that needs to be processed by the worker.
@@ -39,15 +34,15 @@ class SWorker(ABC, Generic[ST, T, RT]):
         ...
 
 @dataclass
-class _PendingResult(Generic[RT]):
+class _PendingResult(Generic[ER]):
     event: Event
-    result: Optional[RT | Exception] = None
+    result: Optional[ER | Exception] = None
 
 @dataclass
-class _ExecutorState(Generic[RT]):
+class _ExecutorState(Generic[ER]):
     ps: list[mp.Process]
     task_id_counter: int
-    pending_results: dict[int, _PendingResult[RT]]
+    pending_results: dict[int, _PendingResult[ER]]
 
 class _Guarded(Generic[T]):
     def __init__(self, value: T):
@@ -61,12 +56,18 @@ class _Guarded(Generic[T]):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._lock.release()
 
-class SPool(Generic[ST, T, RT]):
-    submit_queue: "mp.Queue[tuple[int, Optional[T]]]"
-    result_queue: "mp.Queue[tuple[int, Optional[RT | Exception]]]"
-    state: _Guarded[_ExecutorState[RT]]
+class SPool(Generic[SR, ER]):
+    submit_queue: "mp.Queue[tuple[int, Optional[tuple[tuple, dict]]]]"
+    result_queue: "mp.Queue[tuple[int, Optional[ER | Exception]]]"
+    state: _Guarded[_ExecutorState[ER]]
 
-    def __init__(self, worker_cls: type[SWorker[ST, T, RT]], queue_size = None):
+    def __init__(
+        self, 
+        worker_cls: type[SWorker[SR, ER]], 
+        queue_size = None, 
+        submission_timeout: Optional[float] = None,
+        execution_timeout: Optional[float] = None
+        ):
         self.worker_cls = worker_cls
         self.submit_queue = mp.Queue(0 if queue_size is None else queue_size)
         self.result_queue = mp.Queue()
@@ -77,11 +78,13 @@ class SPool(Generic[ST, T, RT]):
         ))
 
         self.listen_thread = self._listen()
+        self.submission_timeout = submission_timeout
+        self.execution_timeout = execution_timeout
     
     @staticmethod
     def _worker_process(
         startup_queue: mp.Queue,
-        worker_cls: type[SWorker[ST, T, RT]],
+        worker_cls: type[SWorker[SR, ER]],
         submit_queue: mp.Queue,
         result_queue: mp.Queue,
         *args, **kwargs
@@ -99,7 +102,7 @@ class SPool(Generic[ST, T, RT]):
             if task is None:  # Sentinel value to signal shutdown
                 break
             try:
-                result = worker.execute(task)
+                result = worker.execute(*task[0], **task[1])
             except Exception as e:
                 result = e  # Capture exceptions to return them as results
             result_queue.put((task_id, result))
@@ -122,7 +125,7 @@ class SPool(Generic[ST, T, RT]):
         t.start()
         return t
     
-    def spawn(self, *args, **kwargs) -> ST:
+    def spawn(self, *args, **kwargs) -> SR:
         """ 
         Add a worker to the pool. 
         Inputs are passed to the worker's setup method.
@@ -145,11 +148,7 @@ class SPool(Generic[ST, T, RT]):
             state.ps.append(p)
         return setup_result
 
-    def execute(
-        self, task: T, 
-        submission_timeout: Optional[float] = None, 
-        execution_timeout: Optional[float] = None
-        ) -> RT:
+    def execute(self, *args, **kwargs) -> ER:
         """ 
         Submit a task to the pool for processing.  
         This should typically be called from thread, will block until the task is completed.
@@ -163,13 +162,16 @@ class SPool(Generic[ST, T, RT]):
             state.pending_results[task_id] = _PendingResult(event=Event())
 
         try:
-            self.submit_queue.put((task_id, task), timeout=submission_timeout)
+            self.submit_queue.put(
+                (task_id, (args, kwargs)), 
+                timeout=self.submission_timeout
+                )
             with self.state as state:
                 pending_result = state.pending_results[task_id]
             
-            completed = pending_result.event.wait(timeout=execution_timeout)
+            completed = pending_result.event.wait(timeout=self.execution_timeout)
             if not completed:
-                raise TimeoutError(f"Task {task_id} timed out after {execution_timeout} seconds.")
+                raise TimeoutError(f"Task {task_id} timed out after {self.execution_timeout} seconds.")
 
             res = pending_result.result
         except Exception as e:

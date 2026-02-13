@@ -2,18 +2,16 @@ from concurrent.futures import ThreadPoolExecutor
 from stateful_pool import SPool, SWorker
 import time, random
 
-# type annotations for [ST, T, RT] are:
-# [spawn return type, execute argument type, execute return type]
-class SquareWorker(SWorker[str, int, str]):
+class SquareWorker(SWorker):
     gpu_id: int
 
     def spawn(self, gpu_id):
         self.gpu_id = gpu_id
         return f"Worker initialized on GPU {gpu_id}"
     
-    def execute(self, task):
+    def execute(self, value):
         time.sleep(random.uniform(0.1, 1.0))
-        return f"[Execute] Square of {task} is {task * task} (computed on GPU {self.gpu_id})"
+        return f"[Execute] Square of {value} is {value * value} (computed on GPU {self.gpu_id})"
 
 if __name__ == "__main__":
 
