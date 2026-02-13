@@ -2,20 +2,25 @@
 Default `concurrent.futures.ProcessPoolExecutor` makes it hard to maintain stateful workers (e.g., workers each with a model loaded in GPU memory).
 This library provides a simple interface to create a pool of stateful workers that can execute tasks in parallel across multiple processes. 
 
-```txt
+```text
 +-----------------------+              +----------------------+
 |     Main Process      |              |     Process Pool     |
 | +--------+ +--------+ |              | +------------------+ |
-| | Thread | | Thread | | -- Task ---> | | Worker (Process) | |
-| |   1    | |   2    | |              | +------------------+ |
+| | Thread | | Thread | | --- Task --> | | Worker (Process) | |
+| |   1    | |   2    | | <-- Resp --- | +------------------+ |
 | +--------+ +--------+ |              | +------------------+ |
-|      ...     ...      | <--- Res --- | | Worker (Process) | |
+|      ...     ...      |              | | Worker (Process) | |
 | +--------+ +--------+ |              | +------------------+ |
-| | Thread | | Thread | |              |         ...          |
-| |  N-1   | |   N    | |              | +------------------+ |
+| | Thread | | Thread | | --- Task --> |         ...          |
+| |  N-1   | |   N    | | <-- Resp --- | +------------------+ |
 | +--------+ +--------+ |              | | Worker (Process) | |
 |                       |              | +------------------+ |
 +-----------------------+              +----------------------+
+```
+
+Installation:
+```bash
+pip install stateful-pool
 ```
 
 Following is a simple example of how to use the library to create a pool of workers each maintaining its own state (in this case, a GPU ID). 
