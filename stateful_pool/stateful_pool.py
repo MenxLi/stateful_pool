@@ -142,6 +142,8 @@ class SPool(Generic[SR, ER]):
         startup_queue.close()
         startup_queue.join_thread()
         if isinstance(setup_result, Exception):
+            p.terminate()
+            p.join()
             raise setup_result
 
         with self.state as state:
