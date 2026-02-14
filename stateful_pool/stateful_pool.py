@@ -3,6 +3,7 @@ from typing import Generic, TypeVar, Optional
 import multiprocessing as mp
 from threading import Event, Thread, Lock
 from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
 
 T = TypeVar('T')
 SR = TypeVar('SR')
@@ -66,7 +67,8 @@ class SPool(Generic[SR, ER]):
         worker_cls: type[SWorker[SR, ER]], 
         queue_size = None, 
         submission_timeout: Optional[float] = None,
-        execution_timeout: Optional[float] = None
+        execution_timeout: Optional[float] = None, 
+        thread_pool: Optional[ThreadPoolExecutor] = None
         ):
         self.worker_cls = worker_cls
         self.submit_queue = mp.Queue(0 if queue_size is None else queue_size)
@@ -80,6 +82,15 @@ class SPool(Generic[SR, ER]):
         self.listen_thread = self._listen()
         self.submission_timeout = submission_timeout
         self.execution_timeout = execution_timeout
+
+        self._thread_pool = thread_pool or ThreadPoolExecutor()
+        self._external_thread_pool = thread_pool is not None
+    
+    @property
+    def thread_pool(self) -> ThreadPoolExecutor:
+        if self._thread_pool is None:
+            self._thread_pool = ThreadPoolExecutor()
+        return self._thread_pool
     
     @staticmethod
     def _worker_process(
@@ -131,6 +142,9 @@ class SPool(Generic[SR, ER]):
         Inputs are passed to the worker's setup method.
         Will wait for the worker to signal that setup is complete before returning, 
         and will raise any exceptions that occur during setup.
+
+        This method creates a new process for the worker, 
+        it must be guarded by `if __name__ == "__main__":` to avoid infinite process spawning.
         """
         startup_queue = mp.Queue()
         self_args = (startup_queue, self.worker_cls, self.submit_queue, self.result_queue)
@@ -195,7 +209,7 @@ class SPool(Generic[SR, ER]):
         with self.state as state:
             for _ in state.ps:
                 try:
-                    self.submit_queue.put((-1, None), block=False)
+                    self.submit_queue.put((-1, None), timeout=0.1)
                 except queue.Full:
                     # will be handled by following join/terminate logic
                     pass
@@ -218,6 +232,15 @@ class SPool(Generic[SR, ER]):
         with self.state as state:
             state.ps.clear()
             state.pending_results.clear()
+        
+        if not self._external_thread_pool and self._thread_pool is not None:
+            self._thread_pool.shutdown(wait=True)
+    
+    def spawn_future(self, *args, **kwargs):
+        return self.thread_pool.submit(self.spawn, *args, **kwargs)
+    
+    def execute_future(self, *args, **kwargs):
+        return self.thread_pool.submit(self.execute, *args, **kwargs)
     
     def __enter__(self):
         return self

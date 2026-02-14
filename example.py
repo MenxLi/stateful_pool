@@ -28,21 +28,21 @@ if __name__ == "__main__":
     
     # manually manage the pool without context manager
     print("=" * 20, "Manual Pool Management", "=" * 20)
-    pool = SPool(SquareWorker, queue_size=100)
+    pool = SPool(SquareWorker)
     pool.spawn(gpu_ids=[0, 1])
     res = pool.execute(200)
     print(res)
     pool.shutdown()
 
-    # submit multiple tasks concurrently
+    # submit multiple tasks concurrently, thread pool will handle scheduling and execution
     print("=" * 20, "Concurrent Task Submission", "=" * 20)
-    with SPool(SquareWorker, queue_size=100) as pool, ThreadPoolExecutor() as executor:
-            it = executor.map(pool.spawn, [[0, 1], [2, 3], [4, 5], [6, 7]])
-            for i, res in enumerate(it):
-                print(f"Worker {i} spawn result: {res}")
-
-            futures = [executor.submit(pool.execute, i) for i in range(4)]
-            for i, future in enumerate(futures):
-                res = future.result()
-                print(res)
+    with SPool(SquareWorker, thread_pool=ThreadPoolExecutor()) as pool:
+        spawn_futures = [pool.spawn_future(gpu_ids=[i, i+1]) for i in range(0, 4, 2)]
+        for f in spawn_futures:
+            print(f.result())
+        
+        execute_futures = [pool.execute_future(i) for i in range(4)]
+        for f in execute_futures:
+            res = f.result()
+            print(res)
     

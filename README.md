@@ -1,6 +1,8 @@
 
-Default `ProcessPoolExecutor` makes it hard to maintain stateful workers (e.g., workers each with a model loaded in GPU memory).
-This library lets you create a pool of stateful workers to run tasks in parallel across processes.
+Default `ProcessPoolExecutor` makes it hard to maintain stateful workers, 
+expecially workers with expensive setup (e.g., workers each with a model loaded in GPU memory).
+
+This library lets you create a pool of stateful workers (spawn once) to run tasks in parallel across processes (execute many).
 
 ```text
 +-----------------------+              +----------------------+
@@ -23,8 +25,8 @@ Installation:
 pip install stateful-pool
 ```
 
-Following is an example of how to spawn workers (each assigned to several GPUs), and execute tasks on them.
-The result is retrieved in a blocking manner. 
+Following is an example of how to define a worker class, 
+spawn workers (each assigned several GPU IDs), and execute tasks on them.
 
 ```python
 from stateful_pool import SPool, SWorker
@@ -55,5 +57,4 @@ if __name__ == "__main__":
         print(res)
 ```
 
-In practice, you would likely want to submit tasks from a separate thread to avoid blocking (refer to `example.py`). 
-The implementation is thread-safe.
+In practice, you would likely want to submit tasks in a non-blocking manner from threads (refer to `example.py`). 
