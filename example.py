@@ -43,6 +43,5 @@ if __name__ == "__main__":
         
         execute_futures = [pool.execute_future(i) for i in range(4)]
         for f in execute_futures:
-            res = f.result()
-            print(res)
+            print(f.result())
     

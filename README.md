@@ -1,6 +1,6 @@
 
 Default `ProcessPoolExecutor` makes it hard to maintain stateful workers, 
-expecially workers with expensive setup (e.g., workers each with a model loaded in GPU memory).
+especially workers with expensive setup (e.g., workers each with a model loaded in GPU memory).
 
 This library lets you create a pool of stateful workers (spawn once) to run tasks in parallel across processes (execute many).
 
@@ -57,4 +57,16 @@ if __name__ == "__main__":
         print(res)
 ```
 
-In practice, you would likely want to submit tasks in a non-blocking manner from threads (refer to `example.py`). 
+The example calls `pool.execute` once. This doesn't demonstrate the power of the pool (parallelism). 
+In practice, you would likely want to submit tasks in a non-blocking manner:
+
+```python
+with SPool(SquareWorker, thread_pool=ThreadPoolExecutor()) as pool:
+    spawn_futures = [pool.spawn_future(gpu_ids=[i, i+1]) for i in range(0, 4, 2)]
+    for f in spawn_futures:
+        print(f.result())
+    
+    execute_futures = [pool.execute_future(i) for i in range(4)]
+    for f in execute_futures:
+        print(f.result())
+```
