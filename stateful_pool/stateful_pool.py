@@ -236,10 +236,10 @@ class SPool(Generic[SR, ER]):
         if not self._external_thread_pool and self._thread_pool is not None:
             self._thread_pool.shutdown(wait=True)
     
-    def spawn_future(self, *args, **kwargs):
+    def submit_spawn(self, *args, **kwargs):
         return self.thread_pool.submit(self.spawn, *args, **kwargs)
     
-    def execute_future(self, *args, **kwargs):
+    def submit_execute(self, *args, **kwargs):
         return self.thread_pool.submit(self.execute, *args, **kwargs)
     
     def __enter__(self):

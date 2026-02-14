@@ -47,26 +47,25 @@ class SquareWorker(SWorker):
 if __name__ == "__main__":
 
     with SPool(SquareWorker, queue_size=100) as pool:
-        # return value from spawn can be captured
-        s1 = pool.spawn(gpu_ids=[0, 1])
-        s2 = pool.spawn(gpu_ids=[2, 3])
-        print(f"{s1}, {s2}")
+        # spawn a worker, return value can be captured
+        s = pool.spawn(gpu_ids=[0, 1])
+        print(f"{s}")
 
         # submit a single task and wait for result
-        res = pool.execute(100)
-        print(res)
+        r = pool.execute(100)
+        print(r)
 ```
 
 The example calls `pool.execute` once. This doesn't demonstrate the power of the pool (parallelism). 
-In practice, you would likely want to submit tasks in a non-blocking manner:
+In practice, you would likely want to submit tasks in a non-blocking manner via `submit_*` counterparts:
 
 ```python
-with SPool(SquareWorker, thread_pool=ThreadPoolExecutor()) as pool:
-    spawn_futures = [pool.spawn_future(gpu_ids=[i, i+1]) for i in range(0, 4, 2)]
+with SPool(SquareWorker) as pool:
+    spawn_futures = [pool.submit_spawn(gpu_ids=[i, i+1]) for i in range(0, 4, 2)]
     for f in spawn_futures:
         print(f.result())
     
-    execute_futures = [pool.execute_future(i) for i in range(4)]
+    execute_futures = [pool.submit_execute(i) for i in range(4)]
     for f in execute_futures:
         print(f.result())
 ```
