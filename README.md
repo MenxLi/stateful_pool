@@ -55,4 +55,5 @@ if __name__ == "__main__":
         print(res)
 ```
 
-In practice, you would likely want to submit tasks from a separate thread to avoid blocking (refer to `example.py`).
+In practice, you would likely want to submit tasks from a separate thread to avoid blocking (refer to `example.py`). 
+The implementation is thread-safe.
