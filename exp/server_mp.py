@@ -11,7 +11,11 @@ import torch
 import uvicorn
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from PIL import Image
-from torchvision.models import resnet50, ResNet50_Weights
+
+try:
+    import model_init
+except ImportError:
+    from exp import model_init
 
 # Set start method to spawn for better CUDA compatibility
 try:
@@ -34,19 +38,9 @@ def model_worker(device_str: str, conn):
     and processes requests sent via the pipe.
     """
     try:
-        print(f"[Worker {os.getpid()}] Initializing on {device_str}...")
-        
-        # Initialize device
+        # Initialize model
+        model, preprocess = model_init.initialize_model(device_str)
         device = torch.device(device_str)
-        
-        # Load resources
-        weights = ResNet50_Weights.DEFAULT
-        preprocess = weights.transforms()
-        model = resnet50(weights=weights)
-        model.to(device)
-        model.eval()
-        
-        print(f"[Worker {os.getpid()}] Ready on {device_str}")
         
         while True:
             try:
@@ -77,7 +71,7 @@ def model_worker(device_str: str, conn):
                             prediction = predictions[i]
                             class_id = prediction.argmax().item()
                             score = prediction[class_id].item()
-                            category_name = weights.meta["categories"][class_id]
+                            category_name = model_init.get_category_name(class_id)
                             
                             results.append({
                                 "class_id": class_id,

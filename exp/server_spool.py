@@ -5,22 +5,18 @@ from typing import List
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, HTTPException
 import torch
-from torchvision.models import resnet50, ResNet50_Weights
 from PIL import Image
 from stateful_pool import SPool, SWorker
 
-class ResNetWorker(SWorker):
+try:
+    import model_init
+except ImportError:
+    from exp import model_init
+
+class ModelWorker(SWorker):
     def spawn(self, device_str: str):
-        print(f"Initializing worker on {device_str}")
         self.device = torch.device(device_str)
-        
-        # Load model
-        self.weights = ResNet50_Weights.DEFAULT
-        self.model = resnet50(weights=self.weights)
-        self.model.to(self.device)
-        self.model.eval()
-        
-        self.preprocess = self.weights.transforms()
+        self.model, self.preprocess = model_init.initialize_model(device_str)
         return f"Worker initialized on {device_str}"
 
     def execute(self, images_bytes_list: List[bytes]):
@@ -44,7 +40,7 @@ class ResNetWorker(SWorker):
                     prediction = predictions[i]
                     class_id = prediction.argmax().item()
                     score = prediction[class_id].item()
-                    category_name = self.weights.meta["categories"][class_id]
+                    category_name = model_init.get_category_name(class_id)
                     
                     results.append({
                         "class_id": class_id,
@@ -62,7 +58,7 @@ pool = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global pool
-    pool = SPool(ResNetWorker, queue_size=100)
+    pool = SPool(ModelWorker, queue_size=100)
     
     futures = []
     if torch.cuda.is_available():

@@ -10,21 +10,18 @@ import torch
 import uvicorn
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from PIL import Image
-from torchvision.models import resnet50, ResNet50_Weights
+try:
+    import model_init
+except ImportError:
+    from exp import model_init
 
 # Global State
 workers = []
 
 class ModelWorker:
     def __init__(self, device_str):
-        print(f"Initializing model on {device_str}...")
         self.device = torch.device(device_str)
-        self.weights = ResNet50_Weights.DEFAULT
-        self.preprocess = self.weights.transforms()
-        self.model = resnet50(weights=self.weights)
-        self.model.to(self.device)
-        self.model.eval()
-        self.categories = self.weights.meta["categories"]
+        self.model, self.preprocess = model_init.initialize_model(device_str)
         print(f"Ready on {device_str}")
 
     def process(self, images_bytes_list):
@@ -47,7 +44,7 @@ class ModelWorker:
                         prediction = predictions[i]
                         class_id = prediction.argmax().item()
                         score = prediction[class_id].item()
-                        category_name = self.categories[class_id]
+                        category_name = model_init.get_category_name(class_id)
                         
                         results.append({
                             "class_id": class_id,

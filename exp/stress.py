@@ -6,55 +6,68 @@ import numpy as np
 from PIL import Image
 import json
 import io
+import os
 
-def generate_random_image():
-    # Generate a random 224x224 RGB image
-    arr = np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)
+# Create a random uni-color PNG image bytes
+def create_random_image_bytes():
+    # Random uni-color
+    color = np.random.randint(0, 255, (3,), dtype=np.uint8)
+    arr = np.full((224, 224, 3), color, dtype=np.uint8)
     img = Image.fromarray(arr)
     buf = io.BytesIO()
-    img.save(buf, format='JPEG')
-    buf.seek(0)
-    return buf
+    img.save(buf, format='PNG')
+    return buf.getvalue()
 
-def send_request(url, image_data, batch_size=1):
+
+def send_request_task(url, batch_size):
     try:
+        # Generate new random image bytes for this request
+        image_data = create_random_image_bytes()
+        
         start_time = time.time()
-        files = [('files', (f'random_{i}.jpg', image_data, 'image/jpeg')) for i in range(batch_size)]
+        # Prepare files for multipart upload
+        # We reuse the same image data for all files in the batch for maximum throughput
+        files = [('files', (f'random_{i}.png', image_data, 'image/png')) for i in range(batch_size)]
+        
         response = requests.post(url, files=files)
         latency = time.time() - start_time
-        return response.status_code, latency
+        return response.status_code, latency, None
     except Exception as e:
-        print(f"Request failed: {e}")
-        return 0, 0
+        return 0, 0, str(e)
 
 def stress_test(url, num_requests, concurrency, batch_size):
     print(f"Starting stress test on {url}")
-    print(f"Total requests: {num_requests}, Concurrency: {concurrency}, Batch Size: {batch_size}")
     
-    # Pre-generate image to avoid measuring generation time
-    image_buf = generate_random_image()
-    image_data = image_buf.read()
+    max_workers = max(2, os.cpu_count() // 4)   # type: ignore
+    actual_workers = min(concurrency, max_workers)
+    
+    print(f"Total requests: {num_requests}, Max Allowed Concurrency: {max_workers}, Actual Concurrency: {actual_workers}, Batch Size: {batch_size}")
     
     start_time = time.time()
     latencies = []
     success_count = 0
     error_count = 0
+    errors = {}
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
-        futures = {executor.submit(send_request, url, image_data, batch_size): i for i in range(num_requests)}
+    with concurrent.futures.ProcessPoolExecutor(max_workers=actual_workers) as executor:
+        # Submit tasks
+        futures = [executor.submit(send_request_task, url, batch_size) for _ in range(num_requests)]
         
         for future in concurrent.futures.as_completed(futures):
-            status, latency = future.result()
+            status, latency, error_msg = future.result()
             if status == 200:
                 success_count += 1
                 latencies.append(latency)
             else:
                 error_count += 1
+                if error_msg:
+                    errors[error_msg] = errors.get(error_msg, 0) + 1
 
     total_time = time.time() - start_time
+
     avg_latency = sum(latencies) / len(latencies) if latencies else 0
-    throughput = (success_count * batch_size) / total_time # Images per second
-    req_throughput = success_count / total_time # Requests per second
+    throughput = (success_count * batch_size) / total_time if total_time > 0 else 0 # Images per second
+    req_throughput = success_count / total_time if total_time > 0 else 0 # Requests per second
 
     result = {
         "total_time": total_time,
@@ -62,9 +75,12 @@ def stress_test(url, num_requests, concurrency, batch_size):
         "failed_requests": error_count,
         "request_throughput": req_throughput,
         "image_throughput": throughput,
-        "average_latency": avg_latency
+        "average_latency": avg_latency,
+        "error_details": errors
     }
+    print("JSON_START")
     print(json.dumps(result, indent=4))
+    print("JSON_END")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Stress test the inference server.")
