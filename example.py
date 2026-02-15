@@ -16,11 +16,11 @@ if __name__ == "__main__":
     with SPool(SquareWorker, queue_size=100) as pool:
         # spawn a worker, return value can be captured
         s = pool.spawn(gpu_ids=[0, 1])
-        print(f"{s}")
 
         # submit a single task and wait for result
         r = pool.execute(100)
-        print(r)
+
+        print(f"{s}, {r}")
     
     # manually manage the pool without context manager
     print("=" * 20, "Manual Pool Management", "=" * 20)

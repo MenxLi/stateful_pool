@@ -50,11 +50,9 @@ if __name__ == "__main__":
     with SPool(SquareWorker, queue_size=100) as pool:
         # spawn a worker, return value can be captured
         s = pool.spawn(gpu_ids=[0, 1])
-        print(f"{s}")
 
         # submit a single task and wait for result
         r = pool.execute(100)
-        print(r)
 ```
 
 The example calls `pool.execute` once. This doesn't demonstrate the power of the pool (parallelism). 
