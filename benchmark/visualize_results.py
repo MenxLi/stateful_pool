@@ -22,9 +22,9 @@ def main():
         
         # Mapping names for better readability in plot
         name_map = {
-            "server_simple": "simple",
-            "server_mp": "multiprocessing",
-            "server_spool": "stateful-pool"
+            "server_simple": "random dispatch (threaded)",
+            "server_mp": "random dispatch (process)",
+            "server_spool": "stateful-pool*"
         }
         display_name = name_map.get(server_name, server_name)
 
@@ -63,7 +63,7 @@ def main():
         errorbar="sd",    # requested "std range"
         ax=axes[0]
     )
-    axes[0].set_title("Image Throughput vs Batch Size")
+    axes[0].set_title("Image Throughput vs Payload")
     axes[0].set_ylabel("Througput (img/s)")
     axes[0].set_xticks(df["Batch Size"].unique())
 
@@ -80,7 +80,7 @@ def main():
         errorbar="sd",
         ax=axes[1]
     )
-    axes[1].set_title("Average Latency vs Batch Size")
+    axes[1].set_title("Average Latency vs Payload")
     axes[1].set_ylabel("Latency (s)")
     axes[1].set_xticks(df["Batch Size"].unique())
     

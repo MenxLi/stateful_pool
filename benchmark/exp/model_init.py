@@ -24,7 +24,3 @@ def initialize_model(device_str: str):
     ])
     
     return model, preprocess
-
-def get_category_name(class_id):
-    # Since predictions are random, return a placeholder name
-    return f"RandomClass_{class_id}"

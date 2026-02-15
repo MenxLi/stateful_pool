@@ -17,12 +17,6 @@ try:
 except ImportError:
     from exp import model_init
 
-# Set start method to spawn for better CUDA compatibility
-try:
-    multiprocessing.set_start_method('spawn', force=True)
-except RuntimeError:
-    pass
-
 # Global Configuration
 MAX_CONCURRENT_REQUESTS = torch.cuda.device_count() * 2 if torch.cuda.is_available() else 4
 
@@ -61,30 +55,27 @@ def model_worker(device_str: str, conn):
                     tensor = preprocess(image)
                     batch_tensors.append(tensor)
                 
-                if batch_tensors:
-                    batch = torch.stack(batch_tensors).to(device)
+                if not batch_tensors:
+                    conn.send([])
+                    continue
+                
+                batch = torch.stack(batch_tensors).to(device)
+                
+                with torch.no_grad():
+                    predictions = model(batch).softmax(1)
                     
-                    with torch.no_grad():
-                        predictions = model(batch).softmax(1)
+                    for i in range(len(batch_tensors)):
+                        prediction = predictions[i]
+                        class_id = prediction.argmax().item()
+                        score = prediction[class_id].item()
                         
-                        for i in range(len(batch_tensors)):
-                            prediction = predictions[i]
-                            class_id = prediction.argmax().item()
-                            score = prediction[class_id].item()
-                            category_name = model_init.get_category_name(class_id)
-                            
-                            results.append({
-                                "class_id": class_id,
-                                "class_name": category_name,
-                                "confidence": score,
-                                "device": str(device),
-                                "worker_pid": os.getpid()
-                            })
+                        results.append({
+                            "class_id": class_id,
+                            "confidence": score,
+                        })
                 conn.send(results)
                 
             except Exception as e:
-                print(f"[Worker {os.getpid()}] Error processing request: {e}")
-                traceback.print_exc()
                 conn.send({"error": str(e)})
 
     except Exception as e:
@@ -112,13 +103,12 @@ async def lifespan(app: FastAPI):
     global_sem = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
     
     # Detect devices
-    if torch.cuda.is_available():
-        num_gpus = torch.cuda.device_count()
-        print(f"Master: Found {num_gpus} GPUs. Spawning workers...")
-        devices = [f"cuda:{i}" for i in range(num_gpus)]
-    else:
-        print("Master: No GPUs found. Falling back to CPU worker.")
-        devices = ["cpu"]
+    if not torch.cuda.is_available():
+        print("[Error] No GPUs found. ")
+        exit(1)
+    num_gpus = torch.cuda.device_count()
+    print(f"Master: Found {num_gpus} GPUs. Spawning workers...")
+    devices = [f"cuda:{i}" for i in range(num_gpus)]
         
     for dev in devices:
         parent_conn, child_conn = multiprocessing.Pipe()
@@ -174,4 +164,9 @@ async def predict(files: List[UploadFile] = File(...)):
     return result
 
 if __name__ == "__main__":
+    # Set start method to spawn for better CUDA compatibility
+    try:
+        multiprocessing.set_start_method('spawn', force=True)
+    except RuntimeError:
+        pass
     uvicorn.run(app, host="0.0.0.0", port=8000)

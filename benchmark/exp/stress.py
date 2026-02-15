@@ -8,7 +8,6 @@ import json
 import io
 import os
 
-# Create a random uni-color PNG image bytes
 def create_random_image_bytes():
     # Random uni-color
     color = np.random.randint(0, 255, (3,), dtype=np.uint8)
@@ -21,11 +20,9 @@ def create_random_image_bytes():
 
 def send_request_task(url, batch_size):
     try:
-        # Generate new random image bytes for this request
         image_data = create_random_image_bytes()
         
         start_time = time.time()
-        # Prepare files for multipart upload
         # We reuse the same image data for all files in the batch for maximum throughput
         files = [('files', (f'random_{i}.png', image_data, 'image/png')) for i in range(batch_size)]
         

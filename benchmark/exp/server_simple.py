@@ -44,14 +44,10 @@ class ModelWorker:
                         prediction = predictions[i]
                         class_id = prediction.argmax().item()
                         score = prediction[class_id].item()
-                        category_name = model_init.get_category_name(class_id)
                         
                         results.append({
                             "class_id": class_id,
-                            "class_name": category_name,
                             "confidence": score,
-                            "device": str(self.device),
-                            "worker_pid": os.getpid()
                         })
             return results
         except Exception as e:
@@ -62,13 +58,12 @@ class ModelWorker:
 async def lifespan(app: FastAPI):
     global workers
     
-    if torch.cuda.is_available():
-        num_gpus = torch.cuda.device_count()
-        print(f"Server: Found {num_gpus} GPUs.")
-        devices = [f"cuda:{i}" for i in range(num_gpus)]
-    else:
-        print("Server: No GPUs found. Falling back to CPU.")
-        devices = ["cpu"]
+    if not torch.cuda.is_available():
+        print("[Error] No GPUs found. ")
+        exit(1)
+    num_gpus = torch.cuda.device_count()
+    print(f"Server: Found {num_gpus} GPUs.")
+    devices = [f"cuda:{i}" for i in range(num_gpus)]
         
     for dev in devices:
         workers.append(ModelWorker(dev))

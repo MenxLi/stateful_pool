@@ -69,3 +69,24 @@ with SPool(SquareWorker) as pool:
     for f in execute_futures:
         print(f.result())
 ```
+
+## Benchmark
+We benchmark the performance in a stress test scenario where multiple clients send concurrent requests to a server that processes image data.
+The benchmark compares three server implementations:
+
+1. `server_simple`: A simple threaded server that randomly dispatches requests to worker threads.
+2. `server_mp`: A multiprocessing server that maintains a pool of workers, but still random dispatch without producer-consumer queues.
+3. `server_spool`: A server that utilizes the `stateful-pool` library, allowing for efficient parallel task execution.
+
+The result shows that `server_spool` achieves ~30% higher throughput and more stable latency, while implemented with less complexity (~30% code reduction).
+
+![benchmark_result](https://limengxun-imagebed.oss-cn-wuhan-lr.aliyuncs.com/github/spool-bench-cTY36vL.png)
+
+<details>
+
+The result is obtained by running a stress test with 100 concurrent clients sending requests to each server implementation. Each request involves processing an image (simulated by a sleep) and returning a response.
+
+We use ViT-L/16 as the model for processing images, the server runs on a machine with 2 GPUs.
+
+The test is run for 5 times for each server, and the average throughput and latency, as well as their standard deviation, are recorded.
+</details>

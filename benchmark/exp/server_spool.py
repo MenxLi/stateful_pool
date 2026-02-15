@@ -20,55 +20,47 @@ class ModelWorker(SWorker):
         return f"Worker initialized on {device_str}"
 
     def execute(self, images_bytes_list: List[bytes]):
-        try:
-            batch_tensors = []
-            for image_bytes in images_bytes_list:
-                image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-                tensor = self.preprocess(image)
-                batch_tensors.append(tensor)
-            
-            if not batch_tensors:
-                return []
+        batch_tensors = []
+        for image_bytes in images_bytes_list:
+            image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            tensor = self.preprocess(image)
+            batch_tensors.append(tensor)
+        
+        if not batch_tensors:
+            return []
 
-            batch = torch.stack(batch_tensors).to(self.device)
+        batch = torch.stack(batch_tensors).to(self.device)
+        
+        with torch.no_grad():
+            predictions = self.model(batch).softmax(1)
             
-            with torch.no_grad():
-                predictions = self.model(batch).softmax(1)
+            results = []
+            for i in range(len(batch_tensors)):
+                prediction = predictions[i]
+                class_id = prediction.argmax().item()
+                score = prediction[class_id].item()
                 
-                results = []
-                for i in range(len(batch_tensors)):
-                    prediction = predictions[i]
-                    class_id = prediction.argmax().item()
-                    score = prediction[class_id].item()
-                    category_name = model_init.get_category_name(class_id)
-                    
-                    results.append({
-                        "class_id": class_id,
-                        "class_name": category_name,
-                        "confidence": score,
-                        "device": str(self.device)
-                    })
-                
-            return results
-        except Exception as e:
-            return {"error": str(e)}
+                results.append({
+                    "class_id": class_id,
+                    "confidence": score,
+                })
+        return results
 
 pool = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global pool
+    if not torch.cuda.is_available():
+        print("[Error] No GPUs found. ")
+        exit(1)
+
     pool = SPool(ModelWorker, queue_size=100)
-    
     futures = []
-    if torch.cuda.is_available():
-        num_gpus = torch.cuda.device_count()
-        print(f"Found {num_gpus} GPUs. Spawning workers...")
-        for i in range(num_gpus):
-            futures.append(pool.submit_spawn(device_str=f"cuda:{i}"))
-    else:
-        print("No GPUs found. Spawning CPU workers...")
-        futures.append(pool.submit_spawn(device_str="cpu"))
+    num_gpus = torch.cuda.device_count()
+    print(f"Found {num_gpus} GPUs. Spawning workers...")
+    for i in range(num_gpus):
+        futures.append(pool.submit_spawn(device_str=f"cuda:{i}"))
 
     for f in futures:
         try:
@@ -97,10 +89,6 @@ async def predict(files: List[UploadFile] = File(...)):
         assert pool
         future = pool.submit_execute(contents_list)
         result = await asyncio.wrap_future(future)
-        
-        if isinstance(result, dict) and "error" in result:
-             raise HTTPException(status_code=500, detail=result["error"])
-            
         return result
 
     except Exception as e:
