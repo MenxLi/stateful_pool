@@ -43,8 +43,6 @@ class ModelWorker(SWorker):
                 })
         return results
 
-pool = None
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global pool
@@ -52,7 +50,6 @@ async def lifespan(app: FastAPI):
         print("[Error] No GPUs found. ")
         exit(1)
 
-    pool = SPool(ModelWorker, queue_size=100)
     num_gpus = torch.cuda.device_count()
     print(f"Found {num_gpus} GPUs. Spawning workers...")
     try:
@@ -77,15 +74,7 @@ async def predict(files: List[UploadFile] = File(...)):
         contents = await file.read()
         contents_list.append(contents)
 
-    try:
-        assert pool
-        return await pool.async_execute(contents_list)
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
-
+    return await pool.async_execute(contents_list)
 
 if __name__ == "__main__":
     import multiprocessing
@@ -94,4 +83,6 @@ if __name__ == "__main__":
         multiprocessing.set_start_method('spawn', force=True)
     except RuntimeError:
         pass
+
+    pool = SPool(ModelWorker, queue_size=100)
     uvicorn.run(app, host="0.0.0.0", port=8000)

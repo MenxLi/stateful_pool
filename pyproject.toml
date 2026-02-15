@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "stateful_pool"
-version = "0.3.1"
+version = "0.3.2"
 description = "A process pool that allows workers to maintain state across tasks."
 authors = ["Li, Meng-Xun <mengxunli@whu.edu.cn>"]
 readme = "README.md"

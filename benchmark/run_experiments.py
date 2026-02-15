@@ -15,7 +15,7 @@ STRESS_SCRIPT = "exp/stress.py"
 BATCH_SIZES = [1, 4, 8, 16, 32]
 URL = "http://localhost:8000/predict"
 RUNS_PER_SETUP = 5
-NUM_REQUESTS = 100 
+NUM_REQUESTS = 64 
 CONCURRENCY = 16
 
 LOG_DIR = "exp_log"

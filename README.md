@@ -26,7 +26,7 @@ pip install stateful-pool
 ```
 
 Following is an example of how to define a worker class, 
-spawn workers (each assigned several GPU IDs), and execute tasks on them.
+spawn workers (assigned several GPU IDs), and execute tasks on them.
 
 ```python
 from stateful_pool import SPool, SWorker
@@ -66,6 +66,7 @@ with SPool(SquareWorker) as pool:
     for f in execute_futures:
         print(f.result())
 ```
+more examples can be found in the [example.py](./example.py) and [benchmark/exp/server_spool.py](./benchmark/exp/server_spool.py).
 
 ## Benchmark
 The performance is benchmarked in a stress test scenario where multiple clients send concurrent requests to a server processing image data.
