@@ -1,4 +1,8 @@
 
+# Stateful Pool
+
+[![intro-zh](https://img.shields.io/badge/简介-点击查看-8A2BE2?style=social)](https://limengxun.com/posts/2026-02-15_spool.html)
+
 Default `ProcessPoolExecutor` makes it hard to maintain stateful workers, 
 especially workers with expensive setup (e.g., workers each with a model loaded in GPU memory).
 
