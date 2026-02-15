@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar, Optional
 import multiprocessing as mp
@@ -241,6 +242,12 @@ class SPool(Generic[SR, ER]):
     
     def submit_execute(self, *args, **kwargs):
         return self.thread_pool.submit(self.execute, *args, **kwargs)
+    
+    async def async_spawn(self, *args, **kwargs):
+        return await asyncio.wrap_future(self.submit_spawn(*args, **kwargs))
+    
+    async def async_execute(self, *args, **kwargs):
+        return await asyncio.wrap_future(self.submit_execute(*args, **kwargs))
     
     def __enter__(self):
         return self

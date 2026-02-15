@@ -2,7 +2,7 @@
 Default `ProcessPoolExecutor` makes it hard to maintain stateful workers, 
 especially workers with expensive setup (e.g., workers each with a model loaded in GPU memory).
 
-This library lets you create a pool of stateful workers (spawn once) to run tasks in parallel across processes (execute many).
+This library lets you create a pool of stateful workers (spawn once) to run tasks in parallel across processes (execute many) using a [worker pattern actor model](https://www.geeksforgeeks.org/system-design/design-patterns-for-building-actor-based-systems/).
 
 ```text
 +-----------------------+              +----------------------+
@@ -34,8 +34,6 @@ import time, random
 
 # will run in another process
 class SquareWorker(SWorker):
-    gpu_ids: list[int]
-
     def spawn(self, gpu_ids: list[int]):
         self.gpu_ids = gpu_ids
         return f"Worker initialized on GPU: {self.gpu_ids}"
@@ -45,7 +43,6 @@ class SquareWorker(SWorker):
         return f"[Execute] Square of {value} is {value * value} (computed on GPU: {self.gpu_ids})"
 
 if __name__ == "__main__":
-
     with SPool(SquareWorker, queue_size=100) as pool:
         # spawn a worker, return value can be captured
         s = pool.spawn(gpu_ids=[0, 1])
@@ -57,7 +54,7 @@ if __name__ == "__main__":
 ```
 
 The example calls `pool.execute` once. This doesn't demonstrate the power of the pool (parallelism). 
-In practice, you would likely want to submit tasks in a non-blocking manner via `submit_*` counterparts:
+In practice, you would likely want to submit tasks in a non-blocking manner via `submit_*`  or `async_*` counterparts:
 
 ```python
 with SPool(SquareWorker) as pool:
@@ -72,13 +69,13 @@ with SPool(SquareWorker) as pool:
 
 ## Benchmark
 The performance is benchmarked in a stress test scenario where multiple clients send concurrent requests to a server processing image data.
-The benchmark compares three server implementations:
+The benchmark compares three server implementations, essentially comparing load-balancing strategies:
 
 1. `server_simple`: A simple threaded server that randomly dispatches requests to worker threads.
 2. `server_mp`: A multiprocessing server that maintains a pool of workers, but still random dispatch without producer-consumer queues.
 3. `server_spool`: A server that utilizes the `stateful-pool` library, allowing for efficient parallel task execution.
 
-The result shows that `server_spool` achieves ~30% higher throughput and more stable latency, while implemented with less complexity (~30% code reduction).
+The result shows that `server_spool` achieves ~30% higher throughput and more stable latency, while implemented with less complexity (~40% code reduction).
 
 ![benchmark_result](https://limengxun-imagebed.oss-cn-wuhan-lr.aliyuncs.com/github/spool-bench-cTY36vL.png)
 

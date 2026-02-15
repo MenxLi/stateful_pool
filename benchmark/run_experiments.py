@@ -113,7 +113,8 @@ def run_experiment(server_script):
                 server_process.kill()
             
             # Additional cleanup wait
-            time.sleep(5)
+            print("Waiting for server to shut down...")
+            time.sleep(3)
             
     return results
 

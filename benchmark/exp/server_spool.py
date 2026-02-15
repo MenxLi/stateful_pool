@@ -26,9 +26,6 @@ class ModelWorker(SWorker):
             tensor = self.preprocess(image)
             batch_tensors.append(tensor)
         
-        if not batch_tensors:
-            return []
-
         batch = torch.stack(batch_tensors).to(self.device)
         
         with torch.no_grad():
@@ -56,17 +53,12 @@ async def lifespan(app: FastAPI):
         exit(1)
 
     pool = SPool(ModelWorker, queue_size=100)
-    futures = []
     num_gpus = torch.cuda.device_count()
     print(f"Found {num_gpus} GPUs. Spawning workers...")
-    for i in range(num_gpus):
-        futures.append(pool.submit_spawn(device_str=f"cuda:{i}"))
-
-    for f in futures:
-        try:
-            print(f.result())
-        except Exception as e:
-            print(f"Worker spawn failed: {e}")
+    try:
+        await asyncio.gather(*(pool.async_spawn(device_str=f"cuda:{i}") for i in range(num_gpus)))
+    except Exception as e:
+        print(f"Worker spawn failed: {e}")
             
     yield
     
@@ -87,9 +79,7 @@ async def predict(files: List[UploadFile] = File(...)):
 
     try:
         assert pool
-        future = pool.submit_execute(contents_list)
-        result = await asyncio.wrap_future(future)
-        return result
+        return await pool.async_execute(contents_list)
 
     except Exception as e:
         import traceback

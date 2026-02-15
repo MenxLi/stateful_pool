@@ -55,10 +55,6 @@ def model_worker(device_str: str, conn):
                     tensor = preprocess(image)
                     batch_tensors.append(tensor)
                 
-                if not batch_tensors:
-                    conn.send([])
-                    continue
-                
                 batch = torch.stack(batch_tensors).to(device)
                 
                 with torch.no_grad():

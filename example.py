@@ -4,8 +4,6 @@ import time, random
 
 # will run in another process
 class SquareWorker(SWorker):
-    gpu_ids: list[int]
-
     def spawn(self, gpu_ids: list[int]):
         self.gpu_ids = gpu_ids
         return f"Worker initialized on GPU: {self.gpu_ids}"
@@ -15,7 +13,6 @@ class SquareWorker(SWorker):
         return f"[Execute] Square of {value} is {value * value} (computed on GPU: {self.gpu_ids})"
 
 if __name__ == "__main__":
-
     with SPool(SquareWorker, queue_size=100) as pool:
         # spawn a worker, return value can be captured
         s = pool.spawn(gpu_ids=[0, 1])
