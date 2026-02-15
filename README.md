@@ -71,7 +71,7 @@ with SPool(SquareWorker) as pool:
 ```
 
 ## Benchmark
-We benchmark the performance in a stress test scenario where multiple clients send concurrent requests to a server that processes image data.
+The performance is benchmarked in a stress test scenario where multiple clients send concurrent requests to a server processing image data.
 The benchmark compares three server implementations:
 
 1. `server_simple`: A simple threaded server that randomly dispatches requests to worker threads.
@@ -84,7 +84,7 @@ The result shows that `server_spool` achieves ~30% higher throughput and more st
 
 <details>
 
-The result is obtained by running a stress test with 100 concurrent clients sending requests to each server implementation. Each request involves processing an image (simulated by a sleep) and returning a response.
+The result is obtained by running a stress test with 100 concurrent clients sending requests to each server implementation. Each request involves processing an image and returning a response.
 
 We use ViT-L/16 as the model for processing images, the server runs on a machine with 2 GPUs.
 

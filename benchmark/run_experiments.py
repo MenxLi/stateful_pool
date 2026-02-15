@@ -16,7 +16,7 @@ BATCH_SIZES = [1, 4, 8, 16, 32]
 URL = "http://localhost:8000/predict"
 RUNS_PER_SETUP = 5
 NUM_REQUESTS = 100 
-CONCURRENCY = 8
+CONCURRENCY = 16
 
 LOG_DIR = "exp_log"
 RESULTS_FILE = os.path.join(LOG_DIR, "experiment_results.json")

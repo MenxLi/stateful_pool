@@ -155,7 +155,6 @@ async def predict(files: List[UploadFile] = File(...)):
         
         async with locks[worker_idx]:
             conn = parent_conns[worker_idx]
-            
             result = await asyncio.to_thread(send_to_worker, conn, contents_list)
             
     if isinstance(result, dict) and "error" in result:

@@ -83,7 +83,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Stress test the inference server.")
     parser.add_argument("--url", type=str, default="http://localhost:8000/predict", help="Server URL")
     parser.add_argument("--requests", type=int, default=100, help="Total number of requests")
-    parser.add_argument("--concurrency", type=int, default=10, help="Number of concurrent requests")
+    parser.add_argument("--concurrency", type=int, default=16, help="Number of concurrent requests")
     parser.add_argument("--batch-size", type=int, default=1, help="Batch size per request")
     
     args = parser.parse_args()

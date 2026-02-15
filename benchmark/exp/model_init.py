@@ -22,5 +22,10 @@ def initialize_model(device_str: str):
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
+
+    # warm up the model
+    with torch.no_grad():
+        dummy_input = torch.randn(1, 3, 224, 224).to(device)
+        model(dummy_input)
     
     return model, preprocess
