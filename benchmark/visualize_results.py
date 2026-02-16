@@ -22,6 +22,7 @@ def main():
         
         # Mapping names for better readability in plot
         name_map = {
+            "server_dp": "DataParallel",
             "server_simple": "random dispatch (threaded)",
             "server_mp": "random dispatch (process)",
             "server_spool": "stateful-pool*"

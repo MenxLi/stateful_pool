@@ -7,6 +7,7 @@ import requests
 
 # Configuration
 SERVERS = [
+    # "exp/server_dp.py", 
     "exp/server_simple.py",
     "exp/server_mp.py",
     "exp/server_spool.py"
@@ -63,9 +64,11 @@ def run_stress_test(batch_size):
         print(f"Stress test error: {e}")
         return None
 
-def run_experiment(server_script):
+def run_experiment(server_script: str):
     results = {}
-    server_module = server_script.replace("/", ".").rstrip(".py")
+    assert server_script.endswith(".py"), "Server script must be a Python file"
+    server_module = server_script[:-3].replace("/", ".")
+    print(f"\n=== Running experiment for {server_module} ===")
     log_file_path = os.path.join(LOG_DIR, f"{server_module.split('.')[-1]}.log")
     
     env = os.environ.copy()
