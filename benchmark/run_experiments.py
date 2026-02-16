@@ -65,17 +65,17 @@ def run_stress_test(batch_size):
 
 def run_experiment(server_script):
     results = {}
-    server_name = os.path.basename(server_script)
-    log_file_path = os.path.join(LOG_DIR, f"{server_name}.log")
+    server_module = server_script.replace("/", ".").rstrip(".py")
+    log_file_path = os.path.join(LOG_DIR, f"{server_module.split('.')[-1]}.log")
     
     env = os.environ.copy()
     root_dir = os.getcwd()
     env["PYTHONPATH"] = root_dir + os.pathsep + env.get("PYTHONPATH", "")
 
     with open(log_file_path, "w") as log_file:
-        print(f"Starting {server_name}...")
+        print(f"Starting {server_module}...")
         server_process = subprocess.Popen(
-            [sys.executable, server_script],
+            [sys.executable, "-m", server_module],
             env=env,
             stdout=log_file,
             stderr=subprocess.STDOUT
@@ -83,10 +83,10 @@ def run_experiment(server_script):
 
         try:
             if not wait_for_server(URL):
-                print(f"Failed to start {server_name}")
+                print(f"Failed to start {server_module}")
                 return None
             
-            print(f"Server {server_name} ready.")
+            print(f"Server {server_module} ready.")
             
             for batch_size in BATCH_SIZES:
                 print(f"  Batch size: {batch_size}")
@@ -105,7 +105,7 @@ def run_experiment(server_script):
                 results[batch_size] = run_metrics
                     
         finally:
-            print(f"Terminating {server_name}...")
+            print(f"Terminating {server_module}...")
             server_process.terminate()
             try:
                 server_process.wait(timeout=10)

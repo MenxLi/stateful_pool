@@ -11,11 +11,7 @@ import torch
 import uvicorn
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from PIL import Image
-
-try:
-    import model_init
-except ImportError:
-    from exp import model_init
+from . import model_init
 
 # Global Configuration
 MAX_CONCURRENT_REQUESTS = torch.cuda.device_count() * 2 if torch.cuda.is_available() else 4
@@ -99,9 +95,7 @@ async def lifespan(app: FastAPI):
     global_sem = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
     
     # Detect devices
-    if not torch.cuda.is_available():
-        print("[Error] No GPUs found. ")
-        exit(1)
+    assert torch.cuda.is_available(), "No GPUs found. Please run on a machine with CUDA-enabled GPUs."
     num_gpus = torch.cuda.device_count()
     print(f"Master: Found {num_gpus} GPUs. Spawning workers...")
     devices = [f"cuda:{i}" for i in range(num_gpus)]
@@ -159,9 +153,5 @@ async def predict(files: List[UploadFile] = File(...)):
     return result
 
 if __name__ == "__main__":
-    # Set start method to spawn for better CUDA compatibility
-    try:
-        multiprocessing.set_start_method('spawn', force=True)
-    except RuntimeError:
-        pass
+    multiprocessing.set_start_method('spawn', force=True)
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -1,17 +1,14 @@
 import asyncio
 import io
 import uvicorn
+import multiprocessing
 from typing import List
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, HTTPException
 import torch
 from PIL import Image
 from stateful_pool import SPool, SWorker
-
-try:
-    import model_init
-except ImportError:
-    from exp import model_init
+from . import model_init
 
 class ModelWorker(SWorker):
     def spawn(self, device_str: str):
@@ -46,9 +43,7 @@ class ModelWorker(SWorker):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global pool
-    if not torch.cuda.is_available():
-        print("[Error] No GPUs found. ")
-        exit(1)
+    assert torch.cuda.is_available(), "No GPUs found. Please run on a machine with CUDA-enabled GPUs."
 
     num_gpus = torch.cuda.device_count()
     print(f"Found {num_gpus} GPUs. Spawning workers...")
@@ -59,8 +54,7 @@ async def lifespan(app: FastAPI):
             
     yield
     
-    if pool: 
-        pool.shutdown()
+    pool.shutdown()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -77,12 +71,7 @@ async def predict(files: List[UploadFile] = File(...)):
     return await pool.async_execute(contents_list)
 
 if __name__ == "__main__":
-    import multiprocessing
-    # Set the start method for multiprocessing to 'spawn' to be compatible with CUDA
-    try:
-        multiprocessing.set_start_method('spawn', force=True)
-    except RuntimeError:
-        pass
+    multiprocessing.set_start_method('spawn', force=True)
 
     pool = SPool(ModelWorker, queue_size=100)
     uvicorn.run(app, host="0.0.0.0", port=8000)

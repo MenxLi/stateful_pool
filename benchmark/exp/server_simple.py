@@ -10,10 +10,7 @@ import torch
 import uvicorn
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from PIL import Image
-try:
-    import model_init
-except ImportError:
-    from exp import model_init
+from . import model_init
 
 # Global State
 workers = []
@@ -58,9 +55,7 @@ class ModelWorker:
 async def lifespan(app: FastAPI):
     global workers
     
-    if not torch.cuda.is_available():
-        print("[Error] No GPUs found. ")
-        exit(1)
+    assert torch.cuda.is_available(), "No GPUs found. Please run on a machine with CUDA-enabled GPUs."
     num_gpus = torch.cuda.device_count()
     print(f"Server: Found {num_gpus} GPUs.")
     devices = [f"cuda:{i}" for i in range(num_gpus)]
